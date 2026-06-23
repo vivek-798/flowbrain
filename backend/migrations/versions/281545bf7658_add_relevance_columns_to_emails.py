@@ -21,14 +21,15 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
     with op.batch_alter_table('emails') as batch_op:
-        batch_op.add_column(sa.Column('relevance_checked', sa.Boolean(), nullable=False, server_default=sa.text('0')))
+        batch_op.add_column(sa.Column('relevance_checked', sa.Boolean(), nullable=False, server_default=sa.text('false')))
         batch_op.add_column(sa.Column('is_relevant', sa.Boolean(), nullable=True))
         batch_op.add_column(sa.Column('relevance_category', sa.String(), nullable=True))
         batch_op.add_column(sa.Column('relevance_reason', sa.String(), nullable=True))
         batch_op.alter_column('is_excluded',
                    existing_type=sa.BOOLEAN(),
                    nullable=False,
-                   server_default=sa.text('0'))
+                   server_default=sa.text('false'))
+
 
 
 def downgrade() -> None:

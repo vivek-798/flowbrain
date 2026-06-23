@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "supersecretkeyhereforjwttokengenerationandencryption"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 11520
     DATABASE_URL: str = "sqlite:///./flowbrain.db"
+    DIRECT_URL: Optional[str] = None
+
     
     # App URLs
     FRONTEND_URL: str = "http://localhost:5173"

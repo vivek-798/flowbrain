@@ -79,19 +79,21 @@ def startup_event():
     print(f"Client Secret Present: {client_secret_present}", flush=True)
     
     # Dynamic DB migration check for briefings columns
-    from sqlalchemy import text
+    from sqlalchemy import text, inspect
     try:
-        with engine.begin() as conn:
-            cursor = conn.execute(text("PRAGMA table_info(briefings)"))
-            columns = [row[1] for row in cursor.fetchall()]
-            if "headline" not in columns:
-                conn.execute(text("ALTER TABLE briefings ADD COLUMN headline VARCHAR"))
-                print("Migration: Added headline column to briefings table", flush=True)
-            if "ignored_count" not in columns:
-                conn.execute(text("ALTER TABLE briefings ADD COLUMN ignored_count INTEGER DEFAULT 0"))
-                print("Migration: Added ignored_count column to briefings table", flush=True)
+        inspector = inspect(engine)
+        if "briefings" in inspector.get_table_names():
+            columns = [col["name"] for col in inspector.get_columns("briefings")]
+            with engine.begin() as conn:
+                if "headline" not in columns:
+                    conn.execute(text("ALTER TABLE briefings ADD COLUMN headline VARCHAR"))
+                    print("Migration: Added headline column to briefings table", flush=True)
+                if "ignored_count" not in columns:
+                    conn.execute(text("ALTER TABLE briefings ADD COLUMN ignored_count INTEGER DEFAULT 0"))
+                    print("Migration: Added ignored_count column to briefings table", flush=True)
     except Exception as e:
         print("Error running dynamic startup DB check:", e, flush=True)
+
 
 @app.get(f"{settings.API_V1_STR}/debug/oauth")
 def debug_oauth():
@@ -114,4 +116,4 @@ def debug_briefing_status(db: Session = Depends(get_db)):
         "briefings_count": briefings_count,
         "latest_briefing_exists": latest_briefing is not None
     }
-
+# Trigger reload for .env changes

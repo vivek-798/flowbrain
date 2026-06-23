@@ -27,8 +27,12 @@ from app.models.business_context import BusinessContext
 # access to the values within the .ini file in use.
 config = context.config
 
-# Dynamically set database URL from settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Dynamically set database URL from settings (prefer direct connection URL for migrations)
+# Replace '%' with '%%' to prevent configparser interpolation errors on URL-encoded characters
+db_url = settings.DIRECT_URL or settings.DATABASE_URL
+config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
+
+
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
