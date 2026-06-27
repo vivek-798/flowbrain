@@ -259,6 +259,7 @@ class AIService:
                 clients_str = ", ".join(sig["matched_clients"]) if sig["matched_clients"] else "none"
                 proj_str = ", ".join(sig["matched_projects"]) if sig["matched_projects"] else "none"
                 deadlines_str = ", ".join(sig["extracted_deadlines"]) if sig["extracted_deadlines"] else "none"
+                participants_str = ", ".join(sig.get("participants", []))
                 
                 context_parts.append(
                     f"Signal #{idx}:\n"
@@ -272,7 +273,24 @@ class AIService:
                     f"  Matched Projects: {proj_str}\n"
                     f"  Extracted Deadlines: {deadlines_str}\n"
                     f"  Snippet: {sig['snippet']}\n"
+                    f"  Sender Name: {sig.get('sender_name') or 'none'}\n"
+                    f"  Sender Email: {sig.get('sender_email') or 'none'}\n"
+                    f"  Company Name: {sig.get('company_name') or 'none'}\n"
+                    f"  Client Name: {sig.get('client_name') or 'none'}\n"
+                    f"  Thread Subject: {sig.get('thread_subject') or 'none'}\n"
+                    f"  Email Subject: {sig.get('email_subject') or 'none'}\n"
+                    f"  Gmail Message ID: {sig.get('gmail_message_id') or 'none'}\n"
+                    f"  Thread ID: {sig.get('thread_id') or 'none'}\n"
+                    f"  Deadline: {sig.get('deadline') or 'none'}\n"
+                    f"  Meeting Date: {sig.get('meeting_date') or 'none'}\n"
+                    f"  Project Name: {sig.get('project_name') or 'none'}\n"
+                    f"  Invoice Number: {sig.get('invoice_number') or 'none'}\n"
+                    f"  Proposal Number: {sig.get('proposal_number') or 'none'}\n"
+                    f"  Contact Person: {sig.get('contact_person') or 'none'}\n"
+                    f"  Owner: {sig.get('owner') or 'none'}\n"
+                    f"  Participants: {participants_str or 'none'}\n"
                 )
+
         context_parts.append("")
         
         # 6. Inject calendar events
@@ -439,23 +457,26 @@ STRICT RULES:
     a raw calendar event with no attendees, no description, and no 
     business context as a Needs Decision item.
 
+13. Every generated RED and AMBER card must internally retain a `metadata` object mapped from the source signals. Never hallucinate metadata fields. If a field is not available in the signal data, set it to null.
+
 ACTIONS ARRAY RULES:
-1. Generate exactly ONE action per red card and ONE per amber card. 
-   Never generate actions for green cards.
-2. Each action must be SPECIFIC and CONCRETE — include the person's 
-   name, company name, ₹ amount, and deadline where this data exists.
-   BAD: "Follow up with client"
-   GOOD: "Call Meera Krishnan at RetailMax about ₹18,00,000 contract 
-   before board meeting June 25"
-3. Sort actions by priority: financial_impact DESC first, then deadline 
-   proximity, then team blockers. Priority 1 = highest financial risk.
-4. Never invent names, amounts, or dates not present in the briefing 
-   signals or business context.
-5. due_date: extract from the signal deadline if available, else null.
-6. financial_impact in actions: integer in rupees (e.g. 1800000 for 
-   ₹18,00,000), or null if unknown. NEVER a formatted string.
-7. source_signal must exactly match the title field of the red or 
-   amber card it came from.
+1. Generate exactly ONE action per red card and ONE per amber card. Never generate actions for green cards.
+2. Each action must be SPECIFIC and CONCRETE.
+   - If contact_person exists → include it.
+   - If client_name exists → include it.
+   - If company_name exists → include it.
+   - If project_name exists → include it.
+   - If deadline exists → include it.
+   - If invoice_number exists → include it.
+   - If proposal_number exists → include it.
+   - If sender_name exists → include it.
+   Never omit metadata that already exists in the signals.
+3. If metadata (e.g. contact person, client, or company) is unavailable for an action, write "The source data does not contain a contact person." in the action's description instead of hallucinating any names or details.
+4. Never invent names, companies, projects, dates, or financial amounts. Keep them completely factual.
+5. Sort actions by priority: financial_impact DESC first, then deadline proximity, then team blockers. Priority 1 = highest financial risk.
+6. due_date: extract from the signal deadline if available, else null.
+7. financial_impact in actions: integer in rupees (e.g. 1800000 for ₹18,00,000), or null if unknown. NEVER a formatted string.
+8. source_signal must exactly match the title field of the red or amber card it came from.
 
 Respond ONLY in this exact JSON format. No markdown. No commentary. 
 No text before or after the JSON object:
@@ -466,7 +487,26 @@ No text before or after the JSON object:
       "title": "...",
       "detail": "...",
       "financial_impact": "₹X or Unknown",
-      "confidence": "high/medium/low"
+      "confidence": "high/medium/low",
+      "metadata": {
+        "sender_name": "string or null",
+        "sender_email": "string or null",
+        "company_name": "string or null",
+        "client_name": "string or null",
+        "thread_subject": "string or null",
+        "email_subject": "string or null",
+        "gmail_message_id": "string or null",
+        "thread_id": "string or null",
+        "deadline": "string or null",
+        "meeting_date": "string or null",
+        "project_name": "string or null",
+        "invoice_number": "string or null",
+        "proposal_number": "string or null",
+        "contact_person": "string or null",
+        "owner": "string or null",
+        "participants": ["string"],
+        "estimated_duration": "string or null"
+      }
     }
   ],
   "amber": [
@@ -474,7 +514,26 @@ No text before or after the JSON object:
       "title": "...",
       "detail": "...",
       "financial_impact": "₹X or Unknown",
-      "confidence": "high/medium/low"
+      "confidence": "high/medium/low",
+      "metadata": {
+        "sender_name": "string or null",
+        "sender_email": "string or null",
+        "company_name": "string or null",
+        "client_name": "string or null",
+        "thread_subject": "string or null",
+        "email_subject": "string or null",
+        "gmail_message_id": "string or null",
+        "thread_id": "string or null",
+        "deadline": "string or null",
+        "meeting_date": "string or null",
+        "project_name": "string or null",
+        "invoice_number": "string or null",
+        "proposal_number": "string or null",
+        "contact_person": "string or null",
+        "owner": "string or null",
+        "participants": ["string"],
+        "estimated_duration": "string or null"
+      }
     }
   ],
   "green": [
@@ -487,8 +546,8 @@ No text before or after the JSON object:
   "ignored_count": 0,
   "actions": [
     {
-      "title": "Short verb-first action max 8 words",
-      "description": "Specific what/who/when in one sentence",
+      "title": "Short verb-first action including names/companies/etc",
+      "description": "Detailed explanation answering what/why/when in one sentence",
       "priority": 1,
       "due_date": "YYYY-MM-DD or null",
       "financial_impact": 850000,

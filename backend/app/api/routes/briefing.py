@@ -32,9 +32,61 @@ def save_briefing_with_actions(db: Session, user_id: int, result: dict):
         db.add(briefing)
         db.flush()  # get briefing.id without committing
         
-        # 2. Parse and save actions
+        # 2. Deduplicate actions based on normalized title or source_signal
         actions = result.get("actions", [])
-        for action_data in actions:
+        sorted_actions = sorted(actions, key=lambda a: a.get("priority", 99))
+        
+        unique_actions = []
+        seen_issues = set()
+        
+        for action_data in sorted_actions:
+            title = action_data.get("title", "").strip()
+            source_signal = action_data.get("source_signal", "").strip()
+            
+            # Find client_name / project_name if available in action_data or match from briefing card
+            client_name = ""
+            project_name = ""
+            cards = result.get("red", []) + result.get("amber", [])
+            for card in cards:
+                if card.get("title") == source_signal:
+                    meta = card.get("metadata") or {}
+                    client_name = meta.get("client_name") or meta.get("company_name") or ""
+                    project_name = meta.get("project_name") or ""
+                    break
+            
+            def normalize_str(s):
+                if not s:
+                    return ""
+                return "".join(e for e in s.lower() if e.isalnum())
+                
+            norm_title = normalize_str(title)
+            norm_signal = normalize_str(source_signal)
+            
+            # Unique identifier is normalized source_signal or title
+            issue_key = norm_signal if norm_signal else norm_title
+            
+            if issue_key in seen_issues:
+                # Merge financial impact with existing action in unique_actions
+                for existing in unique_actions:
+                    exist_title = existing.get("title", "")
+                    exist_signal = existing.get("source_signal", "")
+                    exist_key = normalize_str(exist_signal) if exist_signal else normalize_str(exist_title)
+                    
+                    if exist_key == issue_key:
+                        ext_val = action_data.get("financial_impact")
+                        prev_val = existing.get("financial_impact")
+                        if isinstance(ext_val, int) and isinstance(prev_val, int):
+                            existing["financial_impact"] = max(prev_val, ext_val)
+                        elif isinstance(ext_val, int):
+                            existing["financial_impact"] = ext_val
+                        break
+                continue
+                
+            seen_issues.add(issue_key)
+            unique_actions.append(action_data)
+            
+        # 3. Parse and save unique actions
+        for action_data in unique_actions:
             # Convert due_date string to date object
             due_date = None
             if action_data.get("due_date"):
@@ -64,7 +116,8 @@ def save_briefing_with_actions(db: Session, user_id: int, result: dict):
             )
             db.add(action)
         
-        # 3. Commit both together
+        # 4. Commit both together
+
         db.commit()
         db.refresh(briefing)
         
@@ -130,7 +183,9 @@ def generate_briefing(db: Session = Depends(get_db), current_user: User = Depend
                 "is_unread": e.is_unread,
                 "labels": e.labels,
                 "snippet": e.snippet,
-                "body_full": e.body_full
+                "body_full": e.body_full,
+                "gmail_message_id": e.gmail_message_id,
+                "thread_id": e.thread_id
             } for e in emails
         ],
         "calendar_events": [
@@ -146,9 +201,11 @@ def generate_briefing(db: Session = Depends(get_db), current_user: User = Depend
             "business_type": business_context.business_type if business_context else "",
             "clients": business_context.clients if business_context else [],
             "projects": business_context.projects if business_context else [],
-            "team_members": business_context.team_members if business_context else []
+            "team_members": business_context.team_members if business_context else [],
+            "owner_name": current_user.name or ""
         } if business_context else None
     }
+
 
     # 4. Invoke the AI Context Builder Service
     briefing_data = AIService.generate_briefing_summary(user_data)
@@ -166,13 +223,47 @@ def generate_briefing(db: Session = Depends(get_db), current_user: User = Depend
 @actions_router.get("")
 def get_actions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
-    Get all pending actions for the current user, sorted by priority ASC.
+    Get all pending actions for the current user, sorted by priority ASC, with dynamic metadata resolution.
     """
     actions = db.query(ActionItem).filter(
         ActionItem.user_id == current_user.id,
         ActionItem.status == "pending"
     ).order_by(ActionItem.priority.asc()).all()
-    return actions
+    
+    result = []
+    for action in actions:
+        briefing = action.briefing
+        client_name = None
+        project_name = None
+        estimated_duration = None
+        
+        if briefing:
+            cards = (briefing.about_to_break or []) + (briefing.needs_decision or [])
+            for card in cards:
+                if card.get("title") == action.source_signal:
+                    meta = card.get("metadata") or {}
+                    client_name = meta.get("client_name") or meta.get("company_name")
+                    project_name = meta.get("project_name")
+                    estimated_duration = meta.get("estimated_duration")
+                    break
+        
+        result.append({
+            "id": action.id,
+            "title": action.title,
+            "description": action.description,
+            "priority": action.priority,
+            "due_date": action.due_date.isoformat() if action.due_date else None,
+            "financial_impact": action.financial_impact,
+            "source_type": action.source_type,
+            "source_signal": action.source_signal,
+            "status": action.status,
+            "created_at": action.created_at,
+            "client_name": client_name,
+            "project_name": project_name,
+            "estimated_duration": estimated_duration
+        })
+    return result
+
 
 @actions_router.patch("/{action_id}")
 def update_action_status(

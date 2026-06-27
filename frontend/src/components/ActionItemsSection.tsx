@@ -191,6 +191,25 @@ export default function ActionItemsSection() {
                             {item.description}
                           </p>
                         )}
+                        
+                        {/* Meta chips (Client, Project, Duration) */}
+                        <div className="flex flex-wrap gap-2 pl-4 pt-1">
+                          {item.client_name && (
+                            <span className="text-[10px] bg-[#1E293B] text-gray-300 px-2 py-0.5 rounded border border-[#334155]/30">
+                              Client: <span className="text-white font-semibold">{item.client_name}</span>
+                            </span>
+                          )}
+                          {item.project_name && (
+                            <span className="text-[10px] bg-[#1E293B] text-gray-300 px-2 py-0.5 rounded border border-[#334155]/30">
+                              Project: <span className="text-white font-semibold">{item.project_name}</span>
+                            </span>
+                          )}
+                          {item.estimated_duration && (
+                            <span className="text-[10px] bg-[#1C2A3A]/40 text-gray-400 px-2 py-0.5 rounded border border-[#1C2A3A]/60">
+                              Duration: <span className="text-white font-semibold">{item.estimated_duration}</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -224,13 +243,13 @@ export default function ActionItemsSection() {
                         <span>Done</span>
                       </button>
                       
-                      {/* Skip button */}
+                      {/* Dismiss button */}
                       <button
                         onClick={() => handleAction(item.id, 'dismissed')}
                         className="bg-transparent text-[#374E70] hover:text-white px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-all"
                       >
                         <X size={11} />
-                        <span>Skip</span>
+                        <span>Dismiss</span>
                       </button>
                     </div>
                   </div>

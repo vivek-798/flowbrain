@@ -11,6 +11,9 @@ export interface ActionItem {
   source_signal: string;
   status: 'pending' | 'done' | 'dismissed';
   created_at: string;
+  client_name?: string | null;
+  project_name?: string | null;
+  estimated_duration?: string | null;
 }
 
 export interface ActionSummary {

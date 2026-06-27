@@ -73,6 +73,65 @@ class SignalExtractor:
             )
             
             if is_signal:
+                # Clean/parse sender email and name
+                sender_email_val = sender
+                sender_name_val = ""
+                email_match = re.search(r'<([^>]+)>', sender)
+                if email_match:
+                    sender_email_val = email_match.group(1).strip()
+                    sender_name_val = re.sub(r'<[^>]+>', '', sender).strip()
+                else:
+                    sender_email_val = sender.strip()
+                    sender_name_val = ""
+
+                # Subjects
+                email_subject_val = subject
+                thread_subject_val = re.sub(r'^(?:[Rr][Ee]|[Ff][Ww][Dd]):\s*', '', subject).strip()
+
+                # IDs
+                gmail_msg_id = email.get("gmail_message_id", "")
+                th_id = email.get("thread_id", "")
+
+                # Match client / company
+                client_name_val = matched_clients[0] if matched_clients else None
+                company_name_val = client_name_val
+                if not company_name_val:
+                    domain_match = re.search(r'@([^.]+)\.', sender_email_val)
+                    if domain_match:
+                        domain = domain_match.group(1).lower()
+                        if domain not in ["gmail", "yahoo", "hotmail", "outlook", "live", "aol", "icloud", "mail", "zoho", "proton", "protonmail"]:
+                            company_name_val = domain.capitalize()
+
+                # Match project
+                project_name_val = matched_projects[0] if matched_projects else None
+
+                # Deadlines
+                deadline_val = extracted_deadlines[0] if extracted_deadlines else None
+                meeting_date_val = deadline_val
+
+                # Invoice / proposal numbers
+                invoice_match = re.search(r'(?:invoice|inv)\s*(?:#|no\.?|number:?)\s*([0-9a-zA-Z\-]+)', scan_text)
+                invoice_number_val = invoice_match.group(1) if invoice_match else None
+
+                proposal_match = re.search(r'(?:proposal|prop)\s*(?:#|no\.?|number:?)\s*([0-9a-zA-Z\-]+)', scan_text)
+                proposal_number_val = proposal_match.group(1) if proposal_match else None
+
+                # Contact person
+                contact_person_val = sender_name_val if sender_name_val else None
+                if not contact_person_val:
+                    # Check if any team member name matches
+                    team_members = business_context.get("team_members", [])
+                    for tm in team_members:
+                        if tm.get("name") and tm.get("name").lower() in scan_text:
+                            contact_person_val = tm.get("name")
+                            break
+
+                # Owner
+                owner_val = business_context.get("owner_name", "")
+
+                # Participants
+                participants_val = [sender_email_val]
+
                 extracted_signals.append({
                     "subject": subject,
                     "sender": sender,
@@ -84,8 +143,27 @@ class SignalExtractor:
                     "matched_projects": list(set(matched_projects)),
                     "payment_references": list(set(payment_references)),
                     "extracted_deadlines": extracted_deadlines,
-                    "snippet": snippet[:150]
+                    "snippet": snippet[:150],
+                    
+                    # Rich signal metadata fields
+                    "sender_name": sender_name_val or None,
+                    "sender_email": sender_email_val or None,
+                    "company_name": company_name_val or None,
+                    "client_name": client_name_val or None,
+                    "thread_subject": thread_subject_val or None,
+                    "email_subject": email_subject_val or None,
+                    "gmail_message_id": gmail_msg_id or None,
+                    "thread_id": th_id or None,
+                    "deadline": deadline_val or None,
+                    "meeting_date": meeting_date_val or None,
+                    "project_name": project_name_val or None,
+                    "invoice_number": invoice_number_val or None,
+                    "proposal_number": proposal_number_val or None,
+                    "contact_person": contact_person_val or None,
+                    "owner": owner_val or None,
+                    "participants": participants_val
                 })
+
                 
         # Heuristic scoring to bubble up the most important signals
         # Score = (2 if unread else 0) + len(urgency_indicators) + (2 if client/project match else 0) + (1 if payment match)
