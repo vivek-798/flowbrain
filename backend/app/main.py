@@ -12,10 +12,12 @@ from app.models.project import Project
 from app.models.email import Email
 from app.models.calendar_event import CalendarEvent
 from app.models.business_context import BusinessContext
+from app.models.action_item import ActionItem
+
 
 # Import API Routers
 from app.api.routes.auth import router as auth_router
-from app.api.routes.briefing import router as briefing_router
+from app.api.routes.briefing import router as briefing_router, actions_router
 from app.api.routes.integrations import router as integrations_router
 from app.api.routes.history import router as history_router
 from app.api.routes.settings import settings_router, insights_router
@@ -23,6 +25,7 @@ from app.api.routes.sync import router as sync_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.business_context import router as business_context_router
 from app.api.routes.emails import router as emails_router
+
 
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -51,6 +54,7 @@ app.add_middleware(
 # Register endpoints under /api/v1
 app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(briefing_router, prefix=settings.API_V1_STR)
+app.include_router(actions_router, prefix=settings.API_V1_STR)
 app.include_router(integrations_router, prefix=settings.API_V1_STR)
 app.include_router(history_router, prefix=settings.API_V1_STR)
 app.include_router(settings_router, prefix=settings.API_V1_STR)
@@ -58,6 +62,7 @@ app.include_router(insights_router, prefix=settings.API_V1_STR)
 app.include_router(sync_router, prefix=settings.API_V1_STR)
 app.include_router(dashboard_router, prefix=settings.API_V1_STR)
 app.include_router(business_context_router, prefix=settings.API_V1_STR)
+
 app.include_router(emails_router, prefix=settings.API_V1_STR)
 
 @app.get("/")

@@ -80,6 +80,10 @@ def _parse_and_validate_ai_response(content: str) -> Dict[str, Any]:
     if missing:
         raise KeyError(f"AI response is missing required JSON fields: {', '.join(missing)}")
         
+    print("ACTIONS FROM GEMINI:", json.dumps(
+        parsed.get("actions", []), indent=2
+    ))
+        
     return parsed
 
 
@@ -389,9 +393,9 @@ STRICT RULES:
 4. If you don't have enough information to judge business importance, 
    say so explicitly rather than guessing from email subject lines alone.
 
-5. NEVER use a generic notification as a "win." A win is: payment received, 
-   client praised work, deal closed, project delivered, positive reply 
-   from a prospect.
+5. NEVER use a generic notification as a "win." A win is: payment 
+   received, client praised work, deal closed, project delivered, 
+   positive reply from a prospect.
 
 6. A technical issue only becomes a business issue if:
    - it affects customers
@@ -407,12 +411,13 @@ STRICT RULES:
    source.
 
 8. NEVER classify personal calendar events (birthdays, anniversaries, 
-   reminders, holidays) as business signals. Exclude them entirely from 
-   the briefing.
+   reminders, holidays) as business signals. Exclude them entirely 
+   from the briefing.
 
 9. When calculating priority, use this internally before assigning 
    Red/Amber/Green:
-   Priority Score = (Revenue Impact × 50%) + (Deadline Risk × 30%) + (Team Blocker × 20%)
+   Priority Score = (Revenue Impact × 50%) + (Deadline Risk × 30%) + 
+   (Team Blocker × 20%)
    Do not show this score to the user — use it only to decide ranking 
    and color.
 
@@ -420,20 +425,80 @@ STRICT RULES:
     return exactly: "No major business risks detected from available 
     data." instead of inventing urgency to fill the briefing.
 
-11. Never invent or estimate a financial value that was not explicitly provided in BUSINESS CONTEXT or stated directly in an email/calendar event. If financial impact is unknown, mark financial_impact as 'Unknown' rather than guessing.
+11. Never invent or estimate a financial value that was not explicitly 
+    provided in BUSINESS CONTEXT or stated directly in an email/calendar 
+    event. If financial impact is unknown, mark financial_impact as 
+    null in actions and "Unknown" in briefing cards.
 
-12. For emails expressing personal frustration, resignation, or leave requests: only classify as RED if they explicitly name a specific project deliverable, client deadline, or revenue amount that will be directly impacted. An informal message saying someone wants to leave without naming a specific business impact should be classified as AMBER (needs decision) not RED (about to break). Never classify a raw calendar event with no attendees, no description, and no business context as a Needs Decision item.
+12. For emails expressing personal frustration, resignation, or leave 
+    requests: only classify as RED if they explicitly name a specific 
+    project deliverable, client deadline, or revenue amount that will 
+    be directly impacted. An informal message saying someone wants to 
+    leave without naming a specific business impact should be classified 
+    as AMBER (needs decision) not RED (about to break). Never classify 
+    a raw calendar event with no attendees, no description, and no 
+    business context as a Needs Decision item.
 
-Respond ONLY in this JSON format, no markdown, no commentary:
+ACTIONS ARRAY RULES:
+1. Generate exactly ONE action per red card and ONE per amber card. 
+   Never generate actions for green cards.
+2. Each action must be SPECIFIC and CONCRETE — include the person's 
+   name, company name, ₹ amount, and deadline where this data exists.
+   BAD: "Follow up with client"
+   GOOD: "Call Meera Krishnan at RetailMax about ₹18,00,000 contract 
+   before board meeting June 25"
+3. Sort actions by priority: financial_impact DESC first, then deadline 
+   proximity, then team blockers. Priority 1 = highest financial risk.
+4. Never invent names, amounts, or dates not present in the briefing 
+   signals or business context.
+5. due_date: extract from the signal deadline if available, else null.
+6. financial_impact in actions: integer in rupees (e.g. 1800000 for 
+   ₹18,00,000), or null if unknown. NEVER a formatted string.
+7. source_signal must exactly match the title field of the red or 
+   amber card it came from.
+
+Respond ONLY in this exact JSON format. No markdown. No commentary. 
+No text before or after the JSON object:
 {
   "headline": "One sharp sentence on the single biggest business risk this week, OR 'No major business risks detected from available data.'",
-  "red": [{"title": "...", "detail": "...", "financial_impact": "₹X, Unknown, or N/A", "confidence": "high/medium/low"}],
-  "amber": [{"title": "...", "detail": "...", "financial_impact": "₹X, Unknown, or N/A", "confidence": "high/medium/low"}],
-  "green": [{"title": "...", "detail": "..."}],
+  "red": [
+    {
+      "title": "...",
+      "detail": "...",
+      "financial_impact": "₹X or Unknown",
+      "confidence": "high/medium/low"
+    }
+  ],
+  "amber": [
+    {
+      "title": "...",
+      "detail": "...",
+      "financial_impact": "₹X or Unknown",
+      "confidence": "high/medium/low"
+    }
+  ],
+  "green": [
+    {
+      "title": "...",
+      "detail": "..."
+    }
+  ],
   "focus": "The single most important action to take today, or 'No urgent action needed today.'",
-  "ignored_count": <number of noise emails/events filtered out>
+  "ignored_count": 0,
+  "actions": [
+    {
+      "title": "Short verb-first action max 8 words",
+      "description": "Specific what/who/when in one sentence",
+      "priority": 1,
+      "due_date": "YYYY-MM-DD or null",
+      "financial_impact": 850000,
+      "source_type": "red or amber",
+      "source_signal": "exact title of originating briefing card"
+    }
+  ]
 }
 """
+
         token_estimate = (len(context) + len(SYSTEM_PROMPT)) // 4
         
         # Pluggable provider list in priority order

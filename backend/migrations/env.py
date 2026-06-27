@@ -22,6 +22,8 @@ from app.models.project import Project
 from app.models.email import Email
 from app.models.calendar_event import CalendarEvent
 from app.models.business_context import BusinessContext
+from app.models.action_item import ActionItem
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

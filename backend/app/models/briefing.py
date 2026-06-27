@@ -20,3 +20,5 @@ class Briefing(Base):
 
     # Relationships
     user = relationship("User", back_populates="briefings")
+    action_items = relationship("ActionItem", back_populates="briefing", cascade="all, delete-orphan")
+

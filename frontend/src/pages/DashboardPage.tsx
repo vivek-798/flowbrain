@@ -4,6 +4,8 @@ import { briefingService } from '../services/briefing';
 import { Mail, Calendar, AlertTriangle, RefreshCw, CheckCircle, Video, MapPin, User as UserIcon, Sparkles, TrendingUp, HelpCircle } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ActionItemsSection from '../components/ActionItemsSection';
+
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
@@ -24,6 +26,7 @@ export default function DashboardPage() {
     mutationFn: briefingService.generateBriefing,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['latestBriefing'] });
+      window.dispatchEvent(new Event('refetchActions'));
       showSyncMessage('success', 'AI briefing generated successfully!');
     },
     onError: (err: any) => {
@@ -36,6 +39,7 @@ export default function DashboardPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['dashboardOverview'] });
       queryClient.invalidateQueries({ queryKey: ['latestBriefing'] });
+      window.dispatchEvent(new Event('refetchActions'));
       showSyncMessage('success', `Gmail synced successfully! ${data.emails_synced} emails processed.`);
     },
     onError: (err: any) => {
@@ -48,6 +52,7 @@ export default function DashboardPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['dashboardOverview'] });
       queryClient.invalidateQueries({ queryKey: ['latestBriefing'] });
+      window.dispatchEvent(new Event('refetchActions'));
       showSyncMessage('success', `Calendar synced successfully! ${data.events_synced} events processed.`);
     },
     onError: (err: any) => {
@@ -365,6 +370,9 @@ export default function DashboardPage() {
                 )}
               </motion.div>
             </div>
+            
+            {/* Action Items Section */}
+            <ActionItemsSection />
           </div>
         ) : (
           /* Empty State */

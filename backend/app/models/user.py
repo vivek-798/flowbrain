@@ -18,3 +18,5 @@ class User(Base):
     integrations = relationship("Integration", back_populates="user", cascade="all, delete-orphan")
     briefings = relationship("Briefing", back_populates="user", cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
+    action_items = relationship("ActionItem", back_populates="user", cascade="all, delete-orphan")
+
